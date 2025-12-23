@@ -37,6 +37,11 @@ body {
 
 .nav-links a:hover {
   color: #2563eb;
+ border-bottom: orange 2px solid;
+}
+.nav-links a.active {
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .nav-user a{
