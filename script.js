@@ -1,92 +1,95 @@
-// Smooth scroll from hero button to booking section [web:10][web:13]
-document.getElementById("hero-book-btn").addEventListener("click", () => {
-  document.getElementById("services").scrollIntoView({
-    behavior: "smooth",
-    block: "start",
-  });
-});
+// ---------- CART STATE ----------
+const cartBody   = document.getElementById("cart-body");
+const totalSpan  = document.getElementById("total-amount");
+const cartDetailsTextarea = document.getElementById("cart-details");
 
-// Cart state
-let cart = [];
-const cartBody = document.getElementById("cart-body");
-const totalAmountEl = document.getElementById("total-amount");
-const cartDetailsField = document.getElementById("cart-details");
+let cart = []; // { name, price }
 
-// Add / remove service handlers
-document.querySelectorAll(".add-service").forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    const li = e.target.closest("li");
-    const name = li.dataset.name;
-    const price = Number(li.dataset.price);
-    cart.push({ name, price });
-    renderCart();
-  });
-});
-
-document.querySelectorAll(".remove-service").forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    const li = e.target.closest("li");
-    const name = li.dataset.name;
-    // remove first occurrence
-    const index = cart.findIndex((item) => item.name === name);
-    if (index !== -1) {
-      cart.splice(index, 1);
-      renderCart();
-    }
-  });
-});
-
-// Render cart table and total
+// ---------- RENDER FUNCTIONS ----------
 function renderCart() {
   cartBody.innerHTML = "";
-  let total = 0;
 
-  cart.forEach((item, i) => {
+  cart.forEach((item, index) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${i + 1}</td>
+      <td>${index + 1}</td>
       <td>${item.name}</td>
-      <td>₹${item.price.toFixed(2)}</td>
+      <td>₹${item.price}</td>
     `;
     cartBody.appendChild(tr);
-    total += item.price;
   });
 
-  totalAmountEl.textContent = total.toFixed(2);
+  const total = cart.reduce((sum, item) => sum + item.price, 0);
+  totalSpan.textContent = total;
 
-  // prepare details for EmailJS
-  const detailsText =
-    cart.length === 0
-      ? "No items in cart."
-      : cart
-          .map((item, i) => `${i + 1}. ${item.name} - ₹${item.price}`)
-          .join("\n") + `\nTotal: ₹${total}`;
-  cartDetailsField.value = detailsText;
+  // also prepare text to send via EmailJS
+  const details = cart
+    .map((item, i) => `${i + 1}. ${item.name} - ₹${item.price}`)
+    .join("\n");
+  cartDetailsTextarea.value = `Items:\n${details}\n\nTotal: ₹${total}`;
 }
 
-// EmailJS booking form submit [web:4][web:11]
+// ---------- ADD / REMOVE LOGIC ----------
+document.querySelectorAll(".service-list li").forEach(li => {
+  const name  = li.dataset.name;
+  const price = Number(li.dataset.price);
+
+  const addBtn    = li.querySelector(".add-btn");
+  const removeBtn = li.querySelector(".remove-btn");
+
+  addBtn.addEventListener("click", () => {
+    // if not already in cart, add
+    const exists = cart.some(item => item.name === name);
+    if (!exists) {
+      cart.push({ name, price });
+      renderCart();
+
+      // toggle buttons
+      addBtn.style.display = "none";
+      removeBtn.style.display = "inline-block";
+    }
+  });
+
+  removeBtn.addEventListener("click", () => {
+    // remove from cart
+    cart = cart.filter(item => item.name !== name);
+    renderCart();
+
+    // toggle buttons
+    removeBtn.style.display = "none";
+    addBtn.style.display = "inline-block";
+  });
+});
+
+// ---------- OPTIONAL: hero button scroll to services ----------
+document.getElementById("hero-book-btn").addEventListener("click", () => {
+  document.getElementById("services").scrollIntoView({ behavior: "smooth" });
+});
+
+// ---------- OPTIONAL: EmailJS form submit ----------
 const bookingForm = document.getElementById("booking-form");
-const bookingMessage = document.getElementById("booking-message");
+const bookingMsg  = document.getElementById("booking-message");
 
 bookingForm.addEventListener("submit", function (e) {
   e.preventDefault();
 
+  // make sure there is at least one item
+  if (cart.length === 0) {
+    alert("Please add at least one service to the cart.");
+    return;
+  }
+
+  // replace with your own service/template/public IDs from EmailJS
   emailjs
-    .sendForm(
-      "YOUR_SERVICE_ID", // replace with EmailJS service ID
-      "YOUR_TEMPLATE_ID", // replace with EmailJS template ID
-      "#booking-form"
-    )
-    .then(
-      function () {
-        bookingMessage.classList.remove("hidden");
-        bookingForm.reset();
-        cart = [];
-        renderCart();
-      },
-      function (error) {
-        console.error("FAILED...", error);
-        alert("Something went wrong. Please try again.");
-      }
-    );
+    .sendForm("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", this)
+    .then(() => {
+      bookingMsg.classList.remove("hidden");
+      bookingForm.reset();
+      cart = [];
+      renderCart();
+    })
+    .catch(err => {
+      console.error("EmailJS error:", err);
+      alert("Sorry, something went wrong. Please try again.");
+    });
 });
